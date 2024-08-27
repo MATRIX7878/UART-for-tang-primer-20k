@@ -9,11 +9,8 @@ ENTITY toplevel IS
 END ENTITY;
 
 ARCHITECTURE behavior OF toplevel IS
-TYPE state IS (IDLE, RECEIVE, SEND);
+TYPE state IS (IDLE, RECEIVE, SENDINPUT, SENDASCII, SENDHEX);
 SIGNAL currentState, nextState : state;
-
-TYPE print IS (INPUT, BASE10, BASE16, ENTER, FEED);
-SIGNAL currLine, nextLine, prevLine : print;
 
 CONSTANT CR : STD_LOGIC_VECTOR := x"0D"; --Carriage Return
 CONSTANT LF : STD_LOGIC_VECTOR := x"0A"; --Line Feed
@@ -25,15 +22,17 @@ CONSTANT DEL  : STD_LOGIC_VECTOR := x"7F"; --Delete
 SIGNAL rx_data : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL rx_valid : STD_LOGIC;
 
-SIGNAL tx_data : STD_LOGIC_VECTOR (7 DOWNTO 0);
+SIGNAL tx_data, tx_str : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL tx_ready : STD_LOGIC;
 SIGNAL tx_valid : STD_LOGIC;
 
-SIGNAL dataString : STRING (16 DOWNTO 1);
-SIGNAL dataLogic : STD_LOGIC_VECTOR (127 DOWNTO 0);
+SIGNAL dataString : STRING (7 DOWNTO 1);
+SIGNAL dataLogic : STD_LOGIC_VECTOR (55 DOWNTO 0);
 
-SIGNAL ASCII : STD_LOGIC_VECTOR (7 DOWNTO 0);
-SIGNAL HEX : STD_LOGIC_VECTOR (7 DOWNTO 0);
+SIGNAL textCount : INTEGER := 0;
+
+SIGNAL HUND, TENS, ONES : STD_LOGIC_VECTOR (7 DOWNTO 0);
+SIGNAL HEXLOW, HEXHIGH : STD_LOGIC_VECTOR (7 DOWNTO 0);
 
 COMPONENT UART_RX IS
     PORT(clk : IN  STD_LOGIC;
@@ -56,7 +55,7 @@ END COMPONENT;
 COMPONENT conv IS
     PORT(clk : IN STD_LOGIC;
          char : IN STD_LOGIC_VECTOR (7 DOWNTO 0);
-         ascii, hex : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
+         hund, tens, ones, hexLow, hexHigh : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
         );
 END COMPONENT;
 
@@ -72,7 +71,7 @@ END FUNCTION;
 BEGIN
     uartrx : UART_RX PORT MAP (clk => clk, reset => RST, rx_IN => RX, rx_valid => rx_valid, rx_data => rx_data);
     uarttx : UART_TX PORT MAP (clk => clk, reset => RST, tx_valid => tx_valid, tx_data => tx_data, tx_ready => tx_ready, tx_OUT => TX);
-    change : conv PORT MAP (clk => clk, char => rx_data, ascii => ASCII, hex => HEX);
+    change : conv PORT MAP (clk => clk, char => rx_data, hund => HUND, tens => TENS, ones => ONES, hexLow => HEXLOW, hexHigh => HEXHIGH);
 
     PROCESS(ALL)
     BEGIN
@@ -81,13 +80,46 @@ BEGIN
             WHEN IDLE => IF RX = '0' THEN
                 nextState <= RECEIVE;
             END IF;
-            WHEN RECEIVE => IF rx_valid <= '1' THEN
-                    nextState <= SEND;
+            WHEN RECEIVE => IF rx_valid = '1' THEN
+                nextState <= SENDINPUT;
+            ELSIF tx_valid AND tx_ready THEN
+                tx_valid <= '0';
             END IF;
-            WHEN SEND => tx_valid <= '1';
-                IF tx_ready = '1' AND tx_valid <= '1' AND RX = '1' THEN
+            WHEN SENDINPUT => dataString <= "Input: ";
+                dataLogic <= STR2SLV(dataString);
+                tx_data <= tx_str;
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 7 THEN
+                    textCount <= textCount + 1;
+                ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
+                    textCount <= 0;
+                    nextState <= SENDASCII;
+                ELSIF NOT tx_valid THEN
+                    tx_valid <= '1';
+                END IF;
+            WHEN SENDASCII => dataString <= "ASCII: ";
+                dataLogic <= STR2SLV(dataString);
+                tx_data <= tx_str;
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                    textCount <= textCount + 1;
+                ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
+                    textCount <= 0;
+                    nextState <= SENDHEX;
+                ELSIF NOT tx_valid THEN
+                    tx_valid <= '1';
+                END IF;
+            WHEN SENDHEX => dataString <= "Hex: 0x";
+                dataLogic <= STR2SLV(dataString);
+                tx_data <= tx_str;
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                    textCount <= textCount + 1;
+                ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
+                    textCount <= 0;
                     nextState <= IDLE;
+                ELSIF NOT tx_valid THEN
+                    tx_valid <= '1';
                 END IF;
             END CASE;
         END IF;
@@ -96,52 +128,8 @@ BEGIN
     PROCESS(ALL)
     BEGIN
         IF RISING_EDGE(clk) THEN
-            CASE currLine IS
-            WHEN INPUT => IF RX = '0' THEN
-                dataString <= "Input: ";
-                dataLogic <= STR2SLV(dataString);
-                FOR i IN 16 DOWNTO 1 LOOP
-                    tx_data <= dataLogic(i * 8 - 1 DOWNTO i * 8 - 9);
-                END LOOP;
-                tx_data <= rx_data;
-                prevLine <= INPUT;
-                nextLine <= ENTER;
-            END IF;
-            WHEN BASE10 => dataString <= "ASCII: ";
-                dataLogic <= STR2SLV(dataString);
-                FOR i IN 16 DOWNTO 1 LOOP
-                    tx_data <= dataLogic(i * 8 - 1 DOWNTO i * 8 - 9);
-                END LOOP;
-                tx_data <= ASCII;
-                prevLine <= BASE10;
-                nextLine <= ENTER;
-            WHEN BASE16 => dataString <= "Hex: 0x";
-                dataLogic <= STR2SLV(dataString);
-                FOR i IN 16 DOWNTO 1 LOOP
-                    tx_data <= dataLogic(i * 8 - 1 DOWNTO i * 8 - 9);
-                END LOOP;
-                tx_data <= HEX;
-                prevLine <= BASE16;
-                nextLine <= ENTER;
-            WHEN ENTER => tx_data <= CR;
-                nextLine <= FEED;
-            WHEN FEED => tx_data <= LF;
-                IF prevLine = INPUT THEN
-                    nextLine <= BASE10;
-                ELSIF prevLine = BASE10 THEN
-                    nextLine <= BASE16;
-                ELSE
-                    nextLine <= INPUT;
-                END IF;
-            END CASE;
-        END IF;
-    END PROCESS;
-
-    PROCESS(clk)
-    BEGIN
-        IF RISING_EDGE(clk) THEN
+            tx_str <= dataLogic(55 - textCount * 8 DOWNTO 48 - textCount * 8);
             currentState <= nextState;
-            currLine <= nextLine;
         END IF;
     END PROCESS;
 END ARCHITECTURE;
