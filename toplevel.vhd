@@ -39,7 +39,7 @@ COMPONENT UART_RX IS
          reset : IN  STD_LOGIC;
          rx_IN : IN  STD_LOGIC;
          rx_valid : OUT STD_LOGIC;
-         rx_data : OUT STD_LOGIC_VECTOR (7 downto 0)
+         rx_data : OUT STD_LOGIC_VECTOR (7 DOWNTO 0)
          );
 END COMPONENT;
 
@@ -47,7 +47,7 @@ COMPONENT UART_TX IS
     PORT (clk : IN  STD_LOGIC;
           reset : IN  STD_LOGIC;
           tx_valid : IN STD_LOGIC;
-          tx_data : IN  STD_LOGIC_VECTOR (7 downto 0);
+          tx_data : IN  STD_LOGIC_VECTOR (7 DOWNTO 0);
           tx_ready : OUT STD_LOGIC;
           tx_OUT : OUT STD_LOGIC);
 END COMPONENT;
@@ -59,20 +59,27 @@ COMPONENT conv IS
         );
 END COMPONENT;
 
-IMPURE FUNCTION STR2SLV (str : STRING) RETURN STD_LOGIC_VECTOR IS
-    VARIABLE data : STD_LOGIC_VECTOR(str'LENGTH * 8 - 1 DOWNTO 0) ;
+IMPURE FUNCTION BITSHIFT (input : STD_LOGIC_VECTOR) RETURN STD_LOGIC_VECTOR IS
+    VARIABLE output : STD_LOGIC_VECTOR(7 DOWNTO 0) := input;
     BEGIN
-    FOR i IN 1 TO str'HIGH LOOP
-        data(i*8 - 1 DOWNTO (i-1) * 8) := STD_LOGIC_VECTOR(TO_UNSIGNED(CHARACTER'POS(str(i)), 8));
+        FOR i IN 7 DOWNTO 1 LOOP
+            output := input(6 DOWNTO 0) & input(7);
+        END LOOP;
+    RETURN output;
+END FUNCTION;
+
+IMPURE FUNCTION STR2SLV (str : STRING) RETURN STD_LOGIC_VECTOR IS
+    VARIABLE data : STD_LOGIC_VECTOR(55 DOWNTO 0) ;
+    VARIABLE temp : STD_LOGIC_VECTOR(7 DOWNTO 0);
+    BEGIN
+    FOR i IN str'HIGH DOWNTO 1 LOOP
+        temp := STD_LOGIC_VECTOR(TO_UNSIGNED(CHARACTER'POS(str(i)), 8));
+        data(i * 8 - 1 DOWNTO i * 8 - 8) := BITSHIFT(temp);
     END LOOP;
     RETURN data;
 END FUNCTION;
 
 BEGIN
-    uartrx : UART_RX PORT MAP (clk => clk, reset => RST, rx_IN => RX, rx_valid => rx_valid, rx_data => rx_data);
-    uarttx : UART_TX PORT MAP (clk => clk, reset => RST, tx_valid => tx_valid, tx_data => tx_data, tx_ready => tx_ready, tx_OUT => TX);
-    change : conv PORT MAP (clk => clk, char => rx_data, hund => HUND, tens => TENS, ones => ONES, hexLow => HEXLOW, hexHigh => HEXHIGH);
-
     PROCESS(ALL)
     BEGIN
         IF RISING_EDGE(clk) THEN
@@ -81,6 +88,7 @@ BEGIN
                 nextState <= RECEIVE;
             END IF;
             WHEN RECEIVE => IF rx_valid = '1' THEN
+                tx_valid <= '1';
                 nextState <= SENDINPUT;
             ELSIF tx_valid AND tx_ready THEN
                 tx_valid <= '0';
@@ -100,7 +108,7 @@ BEGIN
             WHEN SENDASCII => dataString <= "ASCII: ";
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 7 THEN
                     textCount <= textCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
@@ -112,7 +120,7 @@ BEGIN
             WHEN SENDHEX => dataString <= "Hex: 0x";
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 7 THEN
                     textCount <= textCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
@@ -132,4 +140,9 @@ BEGIN
             currentState <= nextState;
         END IF;
     END PROCESS;
+
+    uartrx : UART_RX PORT MAP (clk => clk, reset => RST, rx_IN => RX, rx_valid => rx_valid, rx_data => rx_data);
+    uarttx : UART_TX PORT MAP (clk => clk, reset => RST, tx_valid => tx_valid, tx_data => tx_data, tx_ready => tx_ready, tx_OUT => TX);
+    change : conv PORT MAP (clk => clk, char => rx_data, hund => HUND, tens => TENS, ones => ONES, hexLow => HEXLOW, hexHigh => HEXHIGH);
+
 END ARCHITECTURE;
