@@ -62,9 +62,7 @@ END COMPONENT;
 IMPURE FUNCTION BITSHIFT (input : STD_LOGIC_VECTOR) RETURN STD_LOGIC_VECTOR IS
     VARIABLE output : STD_LOGIC_VECTOR(7 DOWNTO 0) := input;
     BEGIN
-        FOR i IN 7 DOWNTO 1 LOOP
-            output := input(6 DOWNTO 0) & input(7);
-        END LOOP;
+        output := output(6 DOWNTO 0) & output(7);
     RETURN output;
 END FUNCTION;
 
