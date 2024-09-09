@@ -29,6 +29,7 @@ SIGNAL tx_valid : STD_LOGIC;
 SIGNAL dataString : STRING (7 DOWNTO 1);
 SIGNAL dataLogic : STD_LOGIC_VECTOR (55 DOWNTO 0);
 
+SIGNAL counter : INTEGER := 0;
 SIGNAL textCount : INTEGER := 0;
 
 SIGNAL HUND, TENS, ONES : STD_LOGIC_VECTOR (7 DOWNTO 0);
@@ -68,11 +69,9 @@ END FUNCTION;
 
 IMPURE FUNCTION STR2SLV (str : STRING) RETURN STD_LOGIC_VECTOR IS
     VARIABLE data : STD_LOGIC_VECTOR(55 DOWNTO 0) ;
-    VARIABLE temp : STD_LOGIC_VECTOR(7 DOWNTO 0);
     BEGIN
     FOR i IN str'HIGH DOWNTO 1 LOOP
-        temp := STD_LOGIC_VECTOR(TO_UNSIGNED(CHARACTER'POS(str(i)), 8));
-        data(i * 8 - 1 DOWNTO i * 8 - 8) := BITSHIFT(temp);
+        data(i * 8 - 1 DOWNTO i * 8 - 8) := STD_LOGIC_VECTOR(TO_UNSIGNED(CHARACTER'POS(str(i)), 8));
     END LOOP;
     RETURN data;
 END FUNCTION;
@@ -94,8 +93,13 @@ BEGIN
             WHEN SENDINPUT => dataString <= "Input: ";
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 7 THEN
-                    textCount <= textCount + 1;
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                    IF counter /= 1 THEN
+                        counter <= counter + 1;
+                    ELSE
+                        textCount <= textCount + 1;
+                        counter <= 0;
+                    END IF;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     textCount <= 0;
@@ -106,8 +110,13 @@ BEGIN
             WHEN SENDASCII => dataString <= "ASCII: ";
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 7 THEN
-                    textCount <= textCount + 1;
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                    IF counter /= 1 THEN
+                        counter <= counter + 1;
+                    ELSE
+                        textCount <= textCount + 1;
+                        counter <= 0;
+                    END IF;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     textCount <= 0;
@@ -118,8 +127,13 @@ BEGIN
             WHEN SENDHEX => dataString <= "Hex: 0x";
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 7 THEN
-                    textCount <= textCount + 1;
+                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                    IF counter /= 1 THEN
+                        counter <= counter + 1;
+                    ELSE
+                        textCount <= textCount + 1;
+                        counter <= 0;
+                    END IF;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     textCount <= 0;
