@@ -9,7 +9,7 @@ ENTITY toplevel IS
 END ENTITY;
 
 ARCHITECTURE behavior OF toplevel IS
-TYPE state IS (IDLE, RECEIVE, SENDINPUT, SENDASCII, SENDHEX);
+TYPE state IS (IDLE, RECEIVE, SENDINPUT, INPUT, SENDASCII, ASCII, SENDHEX, HEX);
 SIGNAL currentState, nextState : state;
 
 CONSTANT CR : STD_LOGIC_VECTOR := x"0D"; --Carriage Return
@@ -22,15 +22,22 @@ CONSTANT DEL  : STD_LOGIC_VECTOR := x"7F"; --Delete
 SIGNAL rx_data : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL rx_valid : STD_LOGIC;
 
-SIGNAL tx_data, tx_str : STD_LOGIC_VECTOR (7 DOWNTO 0);
+SIGNAL tx_data, tx_str, tx_in, tx_asc, tx_hex : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL tx_ready : STD_LOGIC;
 SIGNAL tx_valid : STD_LOGIC;
 
 SIGNAL dataString : STRING (7 DOWNTO 1);
 SIGNAL dataLogic : STD_LOGIC_VECTOR (55 DOWNTO 0);
 
+SIGNAL dataInput : STD_LOGIC_VECTOR (23 DOWNTO 0) := x"--" & CR & LF;
+SIGNAL dataAscii : STD_LOGIC_VECTOR (39 DOWNTO 0) := x"--" & x"--" & x"--" & CR & LF;
+SIGNAL dataHex : STD_LOGIC_VECTOR (31 DOWNTO 0) := x"--" & x"--" & CR & LF;
+
 SIGNAL counter : INTEGER := 0;
-SIGNAL textCount : INTEGER := 0;
+SIGNAL strCount : INTEGER := 0;
+SIGNAL inCount : INTEGER := 0;
+SIGNAL asCount : INTEGER := 0;
+SIGNAL hexCount : INTEGER := 0;
 
 SIGNAL HUND, TENS, ONES : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL HEXLOW, HEXHIGH : STD_LOGIC_VECTOR (7 DOWNTO 0);
@@ -61,14 +68,16 @@ COMPONENT conv IS
 END COMPONENT;
 
 IMPURE FUNCTION BITSHIFT (input : STD_LOGIC_VECTOR) RETURN STD_LOGIC_VECTOR IS
-    VARIABLE output : STD_LOGIC_VECTOR(7 DOWNTO 0) := input;
+    VARIABLE output : STD_LOGIC_VECTOR(7 DOWNTO 0);
     BEGIN
-        output := output(6 DOWNTO 0) & output(7);
+        FOR i IN 0 TO 7 LOOP
+            output(i) := input(7 - i);
+        END LOOP;
     RETURN output;
 END FUNCTION;
 
 IMPURE FUNCTION STR2SLV (str : STRING) RETURN STD_LOGIC_VECTOR IS
-    VARIABLE data : STD_LOGIC_VECTOR(55 DOWNTO 0) ;
+    VARIABLE data : STD_LOGIC_VECTOR(55 DOWNTO 0);
     BEGIN
     FOR i IN str'HIGH DOWNTO 1 LOOP
         data(i * 8 - 1 DOWNTO i * 8 - 8) := STD_LOGIC_VECTOR(TO_UNSIGNED(CHARACTER'POS(str(i)), 8));
@@ -92,52 +101,97 @@ BEGIN
             END IF;
             WHEN SENDINPUT => dataString <= "Input: ";
                 dataLogic <= STR2SLV(dataString);
-                tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                tx_data <= BITSHIFT(tx_str);
+                IF tx_valid = '1' AND tx_ready = '1' AND strCount < 6 THEN
                     IF counter /= 1 THEN
                         counter <= counter + 1;
                     ELSE
-                        textCount <= textCount + 1;
+                        strCount <= strCount + 1;
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
-                    tx_valid <= '0';
-                    textCount <= 0;
+                    strCount <= 0;
+                    nextState <= INPUT;
+                ELSIF NOT tx_valid THEN
+                    tx_valid <= '1';
+                END IF;
+            WHEN INPUT => dataInput(23 DOWNTO 16) <= rx_data;
+                tx_data <= BITSHIFT(tx_in);
+                IF tx_valid = '1' AND tx_ready = '1' AND inCount < 2 THEN
+                    IF counter /= 1 THEN
+                        counter <= counter + 1;
+                    ELSE
+                        inCount <= inCount + 1;
+                        counter <= 0;
+                    END IF;
+                ELSIF tx_valid AND tx_ready THEN
+                    inCount <= 0;
                     nextState <= SENDASCII;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
             WHEN SENDASCII => dataString <= "ASCII: ";
                 dataLogic <= STR2SLV(dataString);
-                tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                tx_data <= BITSHIFT(tx_str);
+                IF tx_valid = '1' AND tx_ready = '1' AND strCount < 6 THEN
                     IF counter /= 1 THEN
                         counter <= counter + 1;
                     ELSE
-                        textCount <= textCount + 1;
+                        strCount <= strCount + 1;
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
-                    tx_valid <= '0';
-                    textCount <= 0;
+                    strCount <= 0;
+                    nextState <= ASCII;
+                ELSIF NOT tx_valid THEN
+                    tx_valid <= '1';
+                END IF;
+            WHEN ASCII => dataAscii(39 DOWNTO 32) <= HUND;
+                dataAscii(31 DOWNTO 24) <= TENS;
+                dataAscii(23 DOWNTO 16) <= ONES;
+                tx_data <= tx_asc;
+                IF tx_valid = '1' AND tx_ready = '1' AND asCount < 4 THEN
+                    IF counter /= 1 THEN
+                            counter <= counter + 1;
+                    ELSE
+                        asCount <= asCount + 1;
+                        counter <= 0;
+                    END IF;
+                ELSIF tx_valid AND tx_ready THEN
+                    asCount <= 0;
                     nextState <= SENDHEX;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
             WHEN SENDHEX => dataString <= "Hex: 0x";
                 dataLogic <= STR2SLV(dataString);
-                tx_data <= tx_str;
-                IF tx_valid = '1' AND tx_ready = '1' AND textCount < 6 THEN
+                tx_data <= BITSHIFT(tx_str);
+                IF tx_valid = '1' AND tx_ready = '1' AND strCount < 6 THEN
                     IF counter /= 1 THEN
                         counter <= counter + 1;
                     ELSE
-                        textCount <= textCount + 1;
+                        strCount <= strCount + 1;
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
-                    tx_valid <= '0';
-                    textCount <= 0;
-                    nextState <= IDLE;
+                    strCount <= 0;
+                    nextState <= HEX;
+                ELSIF NOT tx_valid THEN
+                    tx_valid <= '1';
+                END IF;
+            WHEN HEX => dataAscii(31 DOWNTO 24) <= HEXHIGH;
+                dataAscii(23 DOWNTO 16) <= HEXLOW;
+                tx_data <= tx_hex;
+                IF tx_valid = '1' AND tx_ready = '1' AND hexCount < 3 THEN
+                    IF counter /= 1 THEN
+                            counter <= counter + 1;
+                    ELSE
+                        hexCount <= hexCount + 1;
+                        counter <= 0;
+                    END IF;
+                ELSIF tx_valid AND tx_ready THEN
+                    hexCount <= 0;
+                    nextState <= INPUT;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
@@ -148,7 +202,10 @@ BEGIN
     PROCESS(ALL)
     BEGIN
         IF RISING_EDGE(clk) THEN
-            tx_str <= dataLogic(55 - textCount * 8 DOWNTO 48 - textCount * 8);
+            tx_str <= dataLogic(55 - strCount * 8 DOWNTO 48 - strCount * 8);
+            tx_in <= dataInput(23 - inCount * 8 DOWNTO 16 - inCount * 8);
+            tx_asc <= dataAscii(39 - asCount * 8 DOWNTO 32 - asCount * 8);
+            tx_hex <= dataHex(31 - hexCount * 8 DOWNTO 24 - hexCount * 8);
             currentState <= nextState;
         END IF;
     END PROCESS;
