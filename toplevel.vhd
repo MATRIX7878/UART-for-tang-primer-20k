@@ -90,14 +90,12 @@ BEGIN
     BEGIN
         IF RISING_EDGE(clk) THEN
             CASE currentState IS
-            WHEN IDLE => IF RX = '0' THEN
+            WHEN IDLE => IF NOT RX THEN
                 nextState <= RECEIVE;
             END IF;
-            WHEN RECEIVE => IF rx_valid = '1' THEN
+            WHEN RECEIVE => IF rx_valid THEN
                 tx_valid <= '1';
                 nextState <= SENDINPUT;
-            ELSIF tx_valid AND tx_ready THEN
-                tx_valid <= '0';
             END IF;
             WHEN SENDINPUT => dataString <= "Input: ";
                 dataLogic <= STR2SLV(dataString);
@@ -130,7 +128,7 @@ BEGIN
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
-            WHEN SENDASCII => dataString <= "ASCII: ";
+            WHEN SENDASCII => dataString <= "Ascii: ";
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= BITSHIFT(tx_str);
                 IF tx_valid = '1' AND tx_ready = '1' AND strCount < 6 THEN
@@ -179,8 +177,8 @@ BEGIN
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
-            WHEN HEX => dataAscii(31 DOWNTO 24) <= HEXHIGH;
-                dataAscii(23 DOWNTO 16) <= HEXLOW;
+            WHEN HEX => dataHex(31 DOWNTO 24) <= HEXHIGH;
+                dataHex(23 DOWNTO 16) <= HEXLOW;
                 tx_data <= tx_hex;
                 IF tx_valid = '1' AND tx_ready = '1' AND hexCount < 3 THEN
                     IF counter /= 1 THEN
@@ -191,7 +189,7 @@ BEGIN
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
                     hexCount <= 0;
-                    nextState <= INPUT;
+                    nextState <= IDLE;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
