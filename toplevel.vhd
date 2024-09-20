@@ -10,14 +10,14 @@ END ENTITY;
 
 ARCHITECTURE behavior OF toplevel IS
 TYPE state IS (IDLE, RECEIVE, SENDINPUT, INPUT, SENDASCII, ASCII, SENDHEX, HEX);
-SIGNAL currentState, nextState : state;
+SIGNAL currentState : state;
 
-CONSTANT CR : STD_LOGIC_VECTOR := x"0D"; --Carriage Return
-CONSTANT LF : STD_LOGIC_VECTOR := x"0A"; --Line Feed
-CONSTANT BS : STD_LOGIC_VECTOR := x"08"; --Backspace
-CONSTANT ESC : STD_LOGIC_VECTOR := x"1B"; --Escape
-CONSTANT SP : STD_LOGIC_VECTOR := x"20"; --Space
-CONSTANT DEL  : STD_LOGIC_VECTOR := x"7F"; --Delete
+CONSTANT CR : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"0D"; --Carriage Return
+CONSTANT LF : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"0A"; --Line Feed
+CONSTANT BS : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"08"; --Backspace
+CONSTANT ESC : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"1B"; --Escape
+CONSTANT SP : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"20"; --Space
+CONSTANT DEL  : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"7F"; --Delete
 
 SIGNAL rx_data : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL rx_valid : STD_LOGIC;
@@ -91,11 +91,11 @@ BEGIN
         IF RISING_EDGE(clk) THEN
             CASE currentState IS
             WHEN IDLE => IF NOT RX THEN
-                nextState <= RECEIVE;
+                currentState <= RECEIVE;
             END IF;
             WHEN RECEIVE => IF rx_valid THEN
                 tx_valid <= '1';
-                nextState <= SENDINPUT;
+                currentState <= SENDINPUT;
             END IF;
             WHEN SENDINPUT => dataString <= "Input: ";
                 dataLogic <= STR2SLV(dataString);
@@ -108,8 +108,9 @@ BEGIN
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
                     strCount <= 0;
-                    nextState <= INPUT;
+                    currentState <= INPUT;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
@@ -123,8 +124,9 @@ BEGIN
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
                     inCount <= 0;
-                    nextState <= SENDASCII;
+                    currentState <= SENDASCII;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
@@ -139,25 +141,27 @@ BEGIN
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
                     strCount <= 0;
-                    nextState <= ASCII;
+                    currentState <= ASCII;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
             WHEN ASCII => dataAscii(39 DOWNTO 32) <= HUND;
                 dataAscii(31 DOWNTO 24) <= TENS;
                 dataAscii(23 DOWNTO 16) <= ONES;
-                tx_data <= tx_asc;
+                tx_data <= BITSHIFT(tx_asc);
                 IF tx_valid = '1' AND tx_ready = '1' AND asCount < 4 THEN
                     IF counter /= 1 THEN
-                            counter <= counter + 1;
+                        counter <= counter + 1;
                     ELSE
                         asCount <= asCount + 1;
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
                     asCount <= 0;
-                    nextState <= SENDHEX;
+                    currentState <= SENDHEX;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
@@ -172,24 +176,26 @@ BEGIN
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
                     strCount <= 0;
-                    nextState <= HEX;
+                    currentState <= HEX;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
             WHEN HEX => dataHex(31 DOWNTO 24) <= HEXHIGH;
                 dataHex(23 DOWNTO 16) <= HEXLOW;
-                tx_data <= tx_hex;
+                tx_data <= BITSHIFT(tx_hex);
                 IF tx_valid = '1' AND tx_ready = '1' AND hexCount < 3 THEN
                     IF counter /= 1 THEN
-                            counter <= counter + 1;
+                        counter <= counter + 1;
                     ELSE
                         hexCount <= hexCount + 1;
                         counter <= 0;
                     END IF;
                 ELSIF tx_valid AND tx_ready THEN
+                    tx_valid <= '0';
                     hexCount <= 0;
-                    nextState <= IDLE;
+                    currentState <= IDLE;
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
@@ -204,7 +210,6 @@ BEGIN
             tx_in <= dataInput(23 - inCount * 8 DOWNTO 16 - inCount * 8);
             tx_asc <= dataAscii(39 - asCount * 8 DOWNTO 32 - asCount * 8);
             tx_hex <= dataHex(31 - hexCount * 8 DOWNTO 24 - hexCount * 8);
-            currentState <= nextState;
         END IF;
     END PROCESS;
 
