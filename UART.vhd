@@ -30,6 +30,9 @@ BEGIN
                     tx_ready <= '0';
                     tx_OUT <= '1';
                     currentState <= START;
+                ELSE
+                    tx_ready <= '1';
+                    tx_OUT <= '1';
                 END IF;
                 WHEN START => IF counter = BAUD THEN
                     tx_OUT <= '0';
@@ -39,7 +42,7 @@ BEGIN
                     counter <= counter + '1';
                 END IF;
                 WHEN SEND => IF counter = BAUD AND bits = 0 THEN
-                    tx_OUT <= tx_data(bits);
+                    tx_OUT <= tx_data(bits);    
                     counter <= (OTHERS => '0');
                     currentState <= STOP;
                 ELSIF counter = BAUD AND bits > 0 THEN
@@ -96,7 +99,7 @@ BEGIN
         IF RISING_EDGE(clk) THEN
             IF NOT reset THEN
                 CASE currentState IS
-                WHEN IDLE => IF NOT rx_IN THEN
+                WHEN IDLE => IF NOT rx_In THEN
                     rx_valid <= '0';
                     currentState <= START;
                 END IF;
