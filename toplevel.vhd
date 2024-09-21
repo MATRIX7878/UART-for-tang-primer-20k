@@ -21,6 +21,7 @@ CONSTANT DEL  : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"7F"; --Delete
 
 SIGNAL rx_data : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL rx_valid : STD_LOGIC;
+SIGNAL rx_ready : STD_LOGIC := '1';
 
 SIGNAL tx_data, tx_str, tx_in, tx_asc, tx_hex : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL tx_ready : STD_LOGIC;
@@ -29,9 +30,9 @@ SIGNAL tx_valid : STD_LOGIC;
 SIGNAL dataString : STRING (7 DOWNTO 1);
 SIGNAL dataLogic : STD_LOGIC_VECTOR (55 DOWNTO 0);
 
-SIGNAL dataInput : STD_LOGIC_VECTOR (23 DOWNTO 0) := x"--" & CR & LF;
-SIGNAL dataAscii : STD_LOGIC_VECTOR (39 DOWNTO 0) := x"--" & x"--" & x"--" & CR & LF;
-SIGNAL dataHex : STD_LOGIC_VECTOR (31 DOWNTO 0) := x"--" & x"--" & CR & LF;
+SIGNAL dataInput : STD_LOGIC_VECTOR (23 DOWNTO 0);
+SIGNAL dataAscii : STD_LOGIC_VECTOR (39 DOWNTO 0);
+SIGNAL dataHex : STD_LOGIC_VECTOR (31 DOWNTO 0);
 
 SIGNAL counter : INTEGER := 0;
 SIGNAL strCount : INTEGER := 0;
@@ -79,7 +80,7 @@ END FUNCTION;
 IMPURE FUNCTION STR2SLV (str : STRING) RETURN STD_LOGIC_VECTOR IS
     VARIABLE data : STD_LOGIC_VECTOR(55 DOWNTO 0);
     BEGIN
-    FOR i IN str'HIGH DOWNTO 1 LOOP
+    FOR i IN 7 DOWNTO 1 LOOP
         data(i * 8 - 1 DOWNTO i * 8 - 8) := STD_LOGIC_VECTOR(TO_UNSIGNED(CHARACTER'POS(str(i)), 8));
     END LOOP;
     RETURN data;
@@ -114,7 +115,7 @@ BEGIN
                 ELSIF NOT tx_valid THEN
                     tx_valid <= '1';
                 END IF;
-            WHEN INPUT => dataInput(23 DOWNTO 16) <= rx_data;
+            WHEN INPUT => dataInput(23 DOWNTO 0) <= rx_data & CR & LF;
                 tx_data <= BITSHIFT(tx_in);
                 IF tx_valid = '1' AND tx_ready = '1' AND inCount < 2 THEN
                     IF counter /= 1 THEN
@@ -150,6 +151,7 @@ BEGIN
             WHEN ASCII => dataAscii(39 DOWNTO 32) <= HUND;
                 dataAscii(31 DOWNTO 24) <= TENS;
                 dataAscii(23 DOWNTO 16) <= ONES;
+                dataAscii(15 DOWNTO 0) <= CR & LF;
                 tx_data <= BITSHIFT(tx_asc);
                 IF tx_valid = '1' AND tx_ready = '1' AND asCount < 4 THEN
                     IF counter /= 1 THEN
@@ -184,6 +186,7 @@ BEGIN
                 END IF;
             WHEN HEX => dataHex(31 DOWNTO 24) <= HEXHIGH;
                 dataHex(23 DOWNTO 16) <= HEXLOW;
+                dataHex(15 DOWNTO 0) <= CR & LF;
                 tx_data <= BITSHIFT(tx_hex);
                 IF tx_valid = '1' AND tx_ready = '1' AND hexCount < 3 THEN
                     IF counter /= 1 THEN
