@@ -10,7 +10,7 @@ END ENTITY;
 
 ARCHITECTURE behavior OF toplevel IS
 TYPE state IS (IDLE, RECEIVE, SENDINPUT, INPUT, SENDASCII, ASCII, SENDHEX, HEX);
-SIGNAL currentState : state;
+SIGNAL currentState : state := IDLE;
 
 CONSTANT CR : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"0D"; --Carriage Return
 CONSTANT LF : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"0A"; --Line Feed
@@ -94,6 +94,7 @@ BEGIN
                 currentState <= RECEIVE;
             END IF;
             WHEN RECEIVE => IF rx_valid THEN
+                tx_valid <= '1';
                 currentState <= SENDINPUT;
             END IF;
             WHEN SENDINPUT => dataString <= "Input: ";
@@ -109,7 +110,11 @@ BEGIN
                     tx_valid <= '1';
                 END IF;
             WHEN INPUT => dataInput(23 DOWNTO 0) <= rx_data & CR & LF;
-                tx_data <= BITSHIFT(tx_in);
+                IF inCount = 0 THEN
+                    tx_data <= tx_in;
+                ELSE
+                    tx_data <= BITSHIFT(tx_in);
+                END IF;
                 IF tx_valid = '1' AND tx_ready = '1' AND inCount < 2 THEN
                     inCount <= inCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
