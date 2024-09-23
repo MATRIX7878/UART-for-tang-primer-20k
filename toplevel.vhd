@@ -34,7 +34,6 @@ SIGNAL dataInput : STD_LOGIC_VECTOR (23 DOWNTO 0);
 SIGNAL dataAscii : STD_LOGIC_VECTOR (39 DOWNTO 0);
 SIGNAL dataHex : STD_LOGIC_VECTOR (31 DOWNTO 0);
 
-SIGNAL counter : INTEGER := 0;
 SIGNAL strCount : INTEGER := 0;
 SIGNAL inCount : INTEGER := 0;
 SIGNAL asCount : INTEGER := 0;
@@ -95,19 +94,13 @@ BEGIN
                 currentState <= RECEIVE;
             END IF;
             WHEN RECEIVE => IF rx_valid THEN
-                tx_valid <= '1';
                 currentState <= SENDINPUT;
             END IF;
             WHEN SENDINPUT => dataString <= "Input: ";
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= BITSHIFT(tx_str);
                 IF tx_valid = '1' AND tx_ready = '1' AND strCount < 6 THEN
-                    IF counter /= 1 THEN
-                        counter <= counter + 1;
-                    ELSE
-                        strCount <= strCount + 1;
-                        counter <= 0;
-                    END IF;
+                    strCount <= strCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     strCount <= 0;
@@ -118,12 +111,7 @@ BEGIN
             WHEN INPUT => dataInput(23 DOWNTO 0) <= rx_data & CR & LF;
                 tx_data <= BITSHIFT(tx_in);
                 IF tx_valid = '1' AND tx_ready = '1' AND inCount < 2 THEN
-                    IF counter /= 1 THEN
-                        counter <= counter + 1;
-                    ELSE
-                        inCount <= inCount + 1;
-                        counter <= 0;
-                    END IF;
+                    inCount <= inCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     inCount <= 0;
@@ -135,12 +123,7 @@ BEGIN
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= BITSHIFT(tx_str);
                 IF tx_valid = '1' AND tx_ready = '1' AND strCount < 6 THEN
-                    IF counter /= 1 THEN
-                        counter <= counter + 1;
-                    ELSE
-                        strCount <= strCount + 1;
-                        counter <= 0;
-                    END IF;
+                    strCount <= strCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     strCount <= 0;
@@ -154,12 +137,7 @@ BEGIN
                 dataAscii(15 DOWNTO 0) <= CR & LF;
                 tx_data <= BITSHIFT(tx_asc);
                 IF tx_valid = '1' AND tx_ready = '1' AND asCount < 4 THEN
-                    IF counter /= 1 THEN
-                        counter <= counter + 1;
-                    ELSE
-                        asCount <= asCount + 1;
-                        counter <= 0;
-                    END IF;
+                    asCount <= asCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     asCount <= 0;
@@ -171,12 +149,7 @@ BEGIN
                 dataLogic <= STR2SLV(dataString);
                 tx_data <= BITSHIFT(tx_str);
                 IF tx_valid = '1' AND tx_ready = '1' AND strCount < 6 THEN
-                    IF counter /= 1 THEN
-                        counter <= counter + 1;
-                    ELSE
-                        strCount <= strCount + 1;
-                        counter <= 0;
-                    END IF;
+                    strCount <= strCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     strCount <= 0;
@@ -189,12 +162,7 @@ BEGIN
                 dataHex(15 DOWNTO 0) <= CR & LF;
                 tx_data <= BITSHIFT(tx_hex);
                 IF tx_valid = '1' AND tx_ready = '1' AND hexCount < 3 THEN
-                    IF counter /= 1 THEN
-                        counter <= counter + 1;
-                    ELSE
-                        hexCount <= hexCount + 1;
-                        counter <= 0;
-                    END IF;
+                    hexCount <= hexCount + 1;
                 ELSIF tx_valid AND tx_ready THEN
                     tx_valid <= '0';
                     hexCount <= 0;
