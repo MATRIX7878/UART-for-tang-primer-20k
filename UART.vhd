@@ -30,9 +30,6 @@ BEGIN
                     tx_ready <= '0';
                     tx_OUT <= '1';
                     currentState <= START;
-                ELSE
-                    tx_ready <= '1';
-                    tx_OUT <= '1';
                 END IF;
                 WHEN START => IF counter = BAUD THEN
                     tx_OUT <= '0';
@@ -62,10 +59,6 @@ BEGIN
                     counter <= counter + '1';
                 END IF;
                 END CASE;
-            ELSE
-                currentState <= IDLE;
-                counter <= (OTHERS => '0');
-                bits <= 7;
             END IF;
         END IF;
     END PROCESS;
@@ -129,10 +122,6 @@ BEGIN
                     counter <= counter + '1';
                 END IF;
                 END CASE;
-            ELSE
-                currentState <= IDLE;
-                counter <= (OTHERS => '0');
-                bits <= 7;
             END IF;
         END IF;
     END PROCESS;
