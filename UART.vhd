@@ -102,18 +102,19 @@ BEGIN
                 ELSE
                     counter <= counter + '1';
                 END IF;
-                WHEN RECEIVE => IF counter = BAUD AND bits = 0 THEN
+                WHEN RECEIVE => IF counter = BAUD THEN
                     rx_data(bits) <= rx_IN;
                     counter <= (OTHERS => '0');
-                    currentState <= STOP;
-                ELSIF counter = BAUD AND bits > 0 THEN
-                    rx_data(bits) <= rx_IN;
-                    counter <= (OTHERS => '0');
-                    bits <= bits - 1;
+                    IF bits = 0 then
+                        currentState <= STOP;
+                        bits <= 0;
+                    ELSE
+                        bits <= bits - 1;
+                    END IF;
                 ELSE
                     counter <= counter + '1';
                 END IF;
-                WHEN STOP => IF counter = BAUD / 2 - '1' THEN
+                WHEN STOP => IF counter = BAUD / 2 THEN
                     bits <= 7;
                     rx_valid <= '1';
                     counter <= (OTHERS => '0');
