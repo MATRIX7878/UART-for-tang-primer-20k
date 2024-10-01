@@ -10,22 +10,14 @@ ENTITY conv IS
 END ENTITY;
 
 ARCHITECTURE behavior OF conv IS
-TYPE state IS (START, ADD3, SHIFT, DONE);
-SIGNAL currentState : state;
-
 TYPE part IS (INTS, BASE, HUN, TEN, ONE);
 SIGNAL currentPart : part;
 
-TYPE bits IS ARRAY (0 TO 7) OF INTEGER;
+TYPE bits IS ARRAY (0 TO 7) OF INTEGER RANGE 0 TO 1;
 SIGNAL int : bits;
 
-SIGNAL step : STD_LOGIC_VECTOR (3 DOWNTO 0) := (OTHERS => '0');
---SIGNAL cache, downup : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
 SIGNAL cache : INTEGER RANGE 0 TO 127;
 SIGNAL downup : STD_LOGIC_VECTOR (7 DOWNTO 0);
-SIGNAL digits : STD_LOGIC_VECTOR (11 DOWNTO 0) := (OTHERS => '0');
-
-SIGNAL temp1, temp2, temp3 : STD_LOGIC_VECTOR (11 DOWNTO 0);
 
 IMPURE FUNCTION UPDOWN (var : STD_LOGIC_VECTOR) RETURN STD_LOGIC_VECTOR IS
 VARIABLE switch : STD_LOGIC_VECTOR (7 DOWNTO 0);
@@ -55,37 +47,17 @@ BEGIN
     PROCESS(ALL)
     BEGIN
         IF RISING_EDGE(clk) THEN
---            CASE currentState IS
---            WHEN START => cache <= char;
---                step <= (OTHERS => '0');
---                digits <= (OTHERS => '0');
---                currentState <= ADD3;
---            WHEN ADD3 => temp1 <= TO_STDLOGICVECTOR(3, 12) WHEN digits(3 DOWNTO 0) >= 5 ELSE (OTHERS => '0');
---                temp2 <= TO_STDLOGICVECTOR(48, 12) WHEN digits(7 DOWNTO 4) >= 5 ELSE (OTHERS => '0');
---                temp3 <= TO_STDLOGICVECTOR(768, 12) WHEN digits(11 DOWNTO 8) >= 5 ELSE (OTHERS => '0');
---                digits <= digits + temp1 + temp2 + temp3;
---                currentState <= SHIFT;
---            WHEN SHIFT => digits <= digits(10 DOWNTO 0) & cache(7);
---                cache <= cache(6 DOWNTO 0) & '0';
---                IF step = 7 THEN
---                    currentState <= DONE;
---                ELSE
---                    step <= step + '1';
---                    currentState <= ADD3;
---                END IF;
---            WHEN DONE => hund <= TO_STDLOGICVECTOR(48, 8) + digits(11 DOWNTO 8);
---                tens <= TO_STDLOGICVECTOR(48, 8) + digits(7 DOWNTO 4);
---                ones <= TO_STDLOGICVECTOR(48, 8) + digits(3 DOWNTO 0);
---                currentState <= START;
---            END CASE;
-
 			CASE currentPart IS
             WHEN INTS => FOR i IN 0 TO 7 LOOP
-				int(i) <= 1 WHEN char(i) ELSE 0;
+				int(i) <= 1 WHEN downup(i) ELSE 0;
 			END LOOP;
                 currentPart <= BASE;
-            WHEN BASE => cache <= int(0) * 1 + int(1) * 2 + int(2) * 4 + int(3) * 8 + int(4) * 16 + int(5) * 32 + int(6) * 64;
+            WHEN BASE => IF int(0) /= 0 AND int(1) /= 0 AND int(2) /= 0 AND int(3) /= 0 AND int(4) /= 0 AND int(5) /= 0 AND int(6) /= 0 AND int(7) /= 0 THEN
+                cache <= int(0) * 1 + int(1) * 2 + int(2) * 4 + int(3) * 8 + int(4) * 16 + int(5) * 32 + int(6) * 64 + int(7) * 128;
                 currentPart <= HUN;
+            ELSE
+                currentPart <= INTS;
+            END IF;
 			WHEN HUN => IF cache >= 100 THEN
 				hund <= TO_STDLOGICVECTOR(48, 8) + "1";
 				cache <= cache - 100;
