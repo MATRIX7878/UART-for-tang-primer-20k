@@ -16,7 +16,7 @@ SIGNAL currentPart : part;
 TYPE bits IS ARRAY (0 TO 7) OF INTEGER RANGE 0 TO 1;
 SIGNAL int : bits;
 
-SIGNAL cache : INTEGER RANGE 0 TO 127;
+SIGNAL cache : INTEGER RANGE 0 TO 255;
 SIGNAL downup : STD_LOGIC_VECTOR (7 DOWNTO 0);
 
 IMPURE FUNCTION UPDOWN (var : STD_LOGIC_VECTOR) RETURN STD_LOGIC_VECTOR IS
@@ -33,12 +33,6 @@ BEGIN
     BEGIN
         IF RISING_EDGE(clk) THEN
             downup <= UPDOWN(char);
-        END IF;
-    END PROCESS;
-
-    PROCESS(ALL)
-    BEGIN
-        IF RISING_EDGE(clk) THEN
             hexHigh <= downup(7 DOWNTO 4) + TO_STDLOGICVECTOR(48, 8) WHEN downup(7 DOWNTO 4) <= 9 ELSE downup(7 DOWNTO 4) + TO_STDLOGICVECTOR(55, 8);
             hexLow <= downup(3 DOWNTO 0) + TO_STDLOGICVECTOR(48, 8) WHEN downup(3 DOWNTO 0) <= 9 ELSE downup(3 DOWNTO 0) + TO_STDLOGICVECTOR(55, 8);
         END IF;
@@ -49,15 +43,11 @@ BEGIN
         IF RISING_EDGE(clk) THEN
 			CASE currentPart IS
             WHEN INTS => FOR i IN 0 TO 7 LOOP
-				int(i) <= 1 WHEN downup(i) ELSE 0;
+				int(i) <= 1 WHEN char(i) ELSE 0;
 			END LOOP;
                 currentPart <= BASE;
-            WHEN BASE => IF int(0) /= 0 AND int(1) /= 0 AND int(2) /= 0 AND int(3) /= 0 AND int(4) /= 0 AND int(5) /= 0 AND int(6) /= 0 AND int(7) /= 0 THEN
-                cache <= int(0) * 1 + int(1) * 2 + int(2) * 4 + int(3) * 8 + int(4) * 16 + int(5) * 32 + int(6) * 64 + int(7) * 128;
+            WHEN BASE => cache <= int(0) * 128 + int(1) * 64 + int(2) * 32 + int(3) * 16 + int(4) * 8 + int(5) * 4 + int(6) * 2 + int(7) * 1;
                 currentPart <= HUN;
-            ELSE
-                currentPart <= INTS;
-            END IF;
 			WHEN HUN => IF cache >= 100 THEN
 				hund <= TO_STDLOGICVECTOR(48, 8) + "1";
 				cache <= cache - 100;
@@ -97,7 +87,7 @@ BEGIN
 			END IF;
 			currentPart <= ONE;
 			WHEN ONE =>	ones <= TO_STDLOGICVECTOR(48, 8) + TO_STDLOGICVECTOR(cache, 4);
-				currentPart <= BASE;
+				currentPart <= INTS;
 			END CASE;
         END IF;
     END PROCESS;
