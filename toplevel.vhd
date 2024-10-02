@@ -21,7 +21,7 @@ CONSTANT DEL  : STD_LOGIC_VECTOR (7 DOWNTO 0) := x"7F"; --Delete
 
 SIGNAL rx_data : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL rx_valid : STD_LOGIC;
-SIGNAL rx_ready : STD_LOGIC := '1';
+SIGNAL rx_ready : STD_LOGIC;
 
 SIGNAL tx_data, tx_str, tx_in, tx_asc, tx_hex : STD_LOGIC_VECTOR (7 DOWNTO 0);
 SIGNAL tx_ready : STD_LOGIC;
