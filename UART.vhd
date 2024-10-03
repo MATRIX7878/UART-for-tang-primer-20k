@@ -30,6 +30,8 @@ BEGIN
                     tx_ready <= '0';
                     tx_OUT <= '1';
                     currentState <= START;
+                ELSE
+                    tx_ready <= '0';
                 END IF;
                 WHEN START => IF counter = BAUD THEN
                     tx_OUT <= '0';
